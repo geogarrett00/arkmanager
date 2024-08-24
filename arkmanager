@@ -1,0 +1,180 @@
+#!/bin/bash
+# Ark Manager - A script for managing Ark Survival Evolved servers
+# Copyright (C) 2024 George Garrett
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+# Constants----------------------------
+# THESE ARE THE ONLY VARIABLE YOU SHOULD EDIT FOR INSTALLATION PATH
+# Path for Installation of Ark Survival Evolved Dedicated Server
+INSTALL_PATH=/media/paladin/Games/SteamLibrary/steamapps/common/ARK\ Survival\ Evolved\ Dedicated\ Server
+# Default destination to backup ark save data
+BACKUP_DES=~/Documents/ark_backup
+
+# OTHER CONSTANTS YOU SHOULD PROBABLY NOT TOUCH
+# Path for server binary
+PROG_DIR=$INSTALL_PATH/ShooterGame/Binaries/Linux/ShooterGameServer
+# Directory for ShooterGameServer save data
+BACKUP_SRC=$INSTALL_PATH/ShooterGame/Saved
+# Arkmanager config file...
+CONF_FILE="${BASH_SOURCE[0]}.conf";
+# Version
+VERSION=2.1;
+
+# Variables----------------------------
+# First array to hold all lines from config file
+conf_file_array=()
+
+# Supporting Functions----------------------------
+function initConfig()
+{
+	# Test if config file exists, if not, this is a critical error.
+	if [[ ! -f $CONF_FILE ]]; then
+		echo "Err: No config file detected. Please add a arkmanager.conf file to the location of this script." >&2
+		exit 1
+	fi
+	# If the config file is empty, give a warning, but not a critical error.
+	if [[ $(cat $CONF_FILE) == "" ]]; then
+		echo "Warning!: Config file is empty!" >&2
+	fi 
+	
+	# Read config file and parse into array
+	while read nextLine; do
+		# Add next line of conf to the end of the array
+		# The following conditional ignores extra new lines and any statements
+		# that begin with '#' i.e. allows you to enter comments.
+		if [[ "$nextLine" != "" && "$nextLine" != "#"* ]]; then
+			conf_file_array+=("$nextLine")
+		fi
+	done < $CONF_FILE
+}
+
+# Starts the ark servers
+function startServer()
+{
+	# Check if servers currently running. Abort if so.
+	if [[ $(pidof ShooterGameServer) != "" ]]; then
+		echo "Err: Ark servers already running!" >&2
+		exit 1
+	fi
+	
+	# Get length of server config file
+	len=${#conf_file_array[@]}
+	
+	# Check to ensure config file isn't empty. If so, nothing to do so exit.
+	if [[ $len == 0 ]]; then
+		echo "Nothing to do. Exiting..."
+		exit
+	fi
+	
+	echo "Starting servers..."
+	# Start ark survival evolved servers using settings loaded from config
+	for (( i=0; i<$len; i++ )); do
+		"$PROG_DIR" ${conf_file_array[$i]} &
+	done
+	echo "Done."
+}
+
+# shutdown() - Shuts down any currently running ark servers.
+function shutdown()
+{
+	# Stop any currently running servers, if so, wait until finished.
+	if [[ $(pidof ShooterGameServer) != "" ]]; then
+		# Stop servers
+		killall ShooterGameServer
+		
+		# Enter wait loop for shutdown
+		while [[ $(pidof ShooterGameServer) != "" ]]; do
+			echo "Shutting servers down...";
+			sleep 5;
+		done
+		# Complete!
+		echo "Shutdown complete!";
+	fi
+}
+
+# backup() - backs up ark save directory
+function backup()
+{
+	echo -e "Source: \t$BACKUP_SRC\nDestination: \t$BACKUP_DES\n";
+	echo "Backing up save files...";
+	# Copy the save directory somewhere else
+	rsync -asz --delete "$BACKUP_SRC" "$BACKUP_DES";
+	echo "Save complete.";
+}
+
+# Help Function----------------------------
+function help()
+{
+	# Begin Help Information
+	cat <<- _EOF_
+	Ark Manager v$VERSION, by PaladinGeorge
+	A script for managing Ark Survival Evolved Servers
+	
+	Useage:		arkmanager <args>...
+	
+	 	Arkmanager is a script for easily managing Ark Survival Evolved servers. To run ark survival evolved servers,
+	 add typical ark commandline config options to arkmanager.conf on a single line like so:
+	  	
+	  	"TheIsland?QueryPort=27015?Port=7777?listen?AllowRaidDinoFeeding" -log
+	  	
+	 	Run the script passing on either "-s" or "start" to start an instance of each server configuration listed in
+	arkmanager.conf. Adding comments in the style of bash using '#' or extra spaces for aesthetic is also legal to add to the 
+	arkmanager.conf file. Ensure that the arkmanager.conf file is present or the script will not run, though an empty script is 
+	still legal. If you desire to change the default install directory, the backup source directory, or the backup destination 
+	directory, then manually edit the directory constants at the top of the script. Arkmanager commands can be chained together 
+	perform multiple operations in succession; arguments are performed in the order they are passed. 
+	
+	 	Ex:
+	 		arkmanager shutdown backup start
+	 			or
+	 		arkmanager -S -b -s
+	
+	The commands listed above would first shutdown any running ark servers, backup the saves directory, then start the servers
+	once more.
+	
+	Commands:
+	 	start, -s 	- Starts the the list of ark survival evolved server configurations listed in arkmanager.conf.
+	 	shutdown, -S 	- Shuts down any currently running ark survival evolved servers.
+	 	backup, -b 	- Performs a back of the ark saves folder. The default location is ~/Documents/ark_backup
+	 	version, -v 	- Prints the current version of arkmanager.
+	 	help, -h 	- Displays the help guide for using arkmanager.
+	_EOF_
+}
+
+# Main program loop----------------------------
+# Initialize config options
+initConfig
+
+# Enter main program loop
+while [[ -n "$1" ]]; do
+	# Handle Arguments
+	case "$1" in
+		-s | start)	startServer
+				;;
+		-S | shutdown) 	shutdown
+				;;
+		-b | backup) 	backup
+				;;
+		-v | version)	help | head -n 5
+				;;
+		-h | help)	help
+				;;
+		*) 		echo "useage: arkmanager <args>..." >&2
+				exit
+				;;
+	esac
+	shift
+done
