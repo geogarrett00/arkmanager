@@ -19,9 +19,9 @@
 # Constants----------------------------
 # THESE ARE THE ONLY VARIABLE YOU SHOULD EDIT FOR INSTALLATION PATH
 # Path for Installation of Ark Survival Evolved Dedicated Server
-INSTALL_PATH=/media/paladin/Games/SteamLibrary/steamapps/common/ARK\ Survival\ Evolved\ Dedicated\ Server
+INSTALL_PATH=~/ # ADD YOUR INSTALLATION PATH FOR THE ARK SERVER BINARY HERE.
 # Default destination to backup ark save data
-BACKUP_DES=~/Documents/ark_backup
+BACKUP_DES=~/ # ADD YOUR PREFERRED BACKUP DESTINATION
 
 # OTHER CONSTANTS YOU SHOULD PROBABLY NOT TOUCH
 # Path for server binary
